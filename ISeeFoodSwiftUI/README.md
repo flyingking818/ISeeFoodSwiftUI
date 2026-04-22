@@ -1,14 +1,13 @@
 # ISeeFoodApp — CoreML Image Recognition Demo
-## Flagler College iOS Development
+## Flagler College CIS 331 - Mobile App Demo.
 
 ---
 
 ## What This App Does
 
-**ISeeFoodApp** is a Silicon Valley-inspired "Is it food?" classifier. Users take
-a photo or pick one from their library, tap Analyze, and the app runs an on-device
-CoreML model to identify what's in the image — then dramatically declares whether
-it's food or not.
+ISeeFoodApp is a Silicon Valley-inspired food classifier. Users take a photo or
+pick one from their library, tap Analyze, and the app runs an on-device CoreML
+model to identify what's in the image.
 
 This demo teaches:
 - CoreML + Vision framework integration
@@ -23,65 +22,59 @@ This demo teaches:
 
     ISeeFoodApp/
     ├── App/
-    │   └── ISeeFoodApp.swift           # @main entry point
+    │   └── ISeeFoodApp.swift           # @main entry point → launches MainView
     ├── Models/
-    │   ├── FoodClassification.swift    # Data models & ClassificationState enum
-    │   ├── FoodClassifierService.swift # CoreML + Vision integration
-    │   └── MockFoodClassifier.swift    # Fake classifier for demos (no model needed)
+    │   └── FoodClassificationModel.swift  # All model layer in one file:
+    │                                      #   FoodClassification (data)
+    │                                      #   ClassificationState (enum)
+    │                                      #   FoodClassifierService (CoreML + Vision)
+    │                                      #   ClassifierError (error types)
+    │                                      #   UIImage orientation extension
     ├── ViewModels/
-    │   └── FoodViewModel.swift         # @Published state, business logic
-    ├── Views/
-    │   ├── ContentView.swift           # Root view, owns @StateObject ViewModel
-    │   ├── MainView.swift              # Primary screen, state-switched layout
-    │   ├── ResultsView.swift           # Prediction cards + confidence bars
-    │   └── ImagePickerView.swift       # UIKit camera bridge
-    └── README.md                       # This file
+    │   └── FoodViewModel.swift         # @Published state + business logic
+    └── Views/
+        ├── MainView.swift              # Root view — owns @StateObject, NavigationStack
+        ├── ResultsView.swift           # Prediction card + confidence bars
+        └── ImagePickerView.swift       # UIKit camera bridge (UIViewControllerRepresentable)
 
 ---
 
 ## MVVM at a Glance
 
-    VIEW (ContentView / MainView / ResultsView)
+    VIEW (MainView / ResultsView / ImagePickerView)
       Reads @Published state. Calls ViewModel methods. Zero logic.
          |
-         | @EnvironmentObject / @StateObject
+         | @StateObject / @EnvironmentObject
          v
     VIEW MODEL (FoodViewModel)
-      Owns state. Orchestrates async classification.
-      @Published properties trigger View re-renders.
+      Owns state. Runs classification on a background thread.
+      @Published properties trigger View re-renders automatically.
          |
-         | Protocol (Classifiable)
+         |
          v
-    MODEL (FoodClassification + FoodClassifierService + MockFoodClassifier)
-      Plain data and CoreML integration. No UI knowledge.
+    MODEL (FoodClassificationModel.swift)
+      FoodClassification — plain data struct, no UI
+      ClassificationState — enum tracking idle/analyzing/results/error
+      FoodClassifierService — loads CoreML model, runs Vision request
+      No SwiftUI imports. No UI knowledge.
 
 ---
 
 ## Getting Started
 
-### Step 1 — Run the Demo (No Model Required)
-The app ships with MockFoodClassifier as the default. Run it immediately
-to see the full UI with simulated predictions.
+### Step 1 — Add the CoreML Model
 
-### Step 2 — Add the Real CoreML Model
 1. Download MobileNetV2.mlmodel from:
    https://developer.apple.com/machine-learning/models/
 
 2. Drag MobileNetV2.mlmodel into your Xcode project navigator.
    Check: "Add to target: ISeeFoodApp"
 
-3. In FoodViewModel.swift, change the initializer default:
+3. Build and run. The model loads automatically via FoodClassifierService.
 
-   BEFORE (mock):
-   init(classifier: Classifiable = MockFoodClassifier())
+### Step 2 — Info.plist Privacy Keys
 
-   AFTER (real CoreML):
-   init(classifier: Classifiable = FoodClassifierService())
-
-4. Build and run. Real predictions from your device's Neural Engine!
-
-### Step 3 — Info.plist Privacy Keys
-Add these keys to your Info.plist (or via Xcode target > Info tab):
+Add these two keys to your Info.plist (Xcode target > Info tab):
 
    NSCameraUsageDescription
    "ISeefood needs the camera to analyze your food."
@@ -89,58 +82,69 @@ Add these keys to your Info.plist (or via Xcode target > Info tab):
    NSPhotoLibraryUsageDescription
    "ISeefood needs photo access to analyze images."
 
-Without these, the app will crash when accessing camera/photos.
+Without these the app will crash when accessing camera or photos.
 
 ---
 
-## Key Concepts Taught
+## Key Concepts in this Demo
 
 CoreML
-  Apple's on-device ML framework. Models run entirely on the device — no network
-  call, no privacy concern. The Neural Engine on modern iPhones runs billions of
-  operations per second.
+  Apple's on-device ML framework. MobileNetV2.mlmodel runs entirely on the
+  device — no network call, no privacy concern. The Neural Engine on modern
+  iPhones processes billions of operations per second.
 
 Vision Framework
-  High-level computer vision built on CoreML. Handles image resizing, pixel format
-  conversion, and orientation correction automatically. Always use Vision to feed
-  images to CoreML rather than calling CoreML directly.
+  Sits on top of CoreML. Handles image resizing, pixel format conversion, and
+  orientation correction before feeding the image to the model. We hand Vision
+  a UIImage; it takes care of converting it to the 224x224 CVPixelBuffer that
+  MobileNetV2 expects.
+
+CoreML + Vision relationship
+  VNCoreMLModel wraps the raw MLModel — this is the handoff point.
+  Vision owns everything before and after the model.
+  CoreML is only the model itself. Swap MobileNetV2 for any other classifier
+  and the Vision code doesn't change at all.
+
+ImageNet Label Cleaning
+  MobileNetV2 returns raw ImageNet identifiers: "n07871810 meat loaf, meatloaf"
+  FoodClassifierService.cleanLabel() strips the synset ID and takes the first
+  synonym so the user sees "Meat Loaf" instead.
 
 @MainActor
-  A Swift concurrency annotation that pins a class to the main thread.
-  SwiftUI requires @Published updates on the main thread — @MainActor makes
-  this automatic and enforced by the compiler.
+  Pins FoodViewModel to the main thread. SwiftUI requires @Published updates on
+  the main thread — @MainActor enforces this automatically at compile time.
 
-Async/Await + Task
-  Swift's structured concurrency model. Task.detached moves expensive CoreML
-  work off the main thread to keep the UI responsive. await MainActor.run {}
-  jumps back to the main thread to update UI.
+Task.detached + await MainActor.run
+  CoreML inference is expensive. Task.detached moves it off the main thread so
+  the UI stays responsive. await MainActor.run {} jumps back to update state.
 
-Protocol + Dependency Injection
-  FoodClassifierService and MockFoodClassifier both conform to Classifiable.
-  The ViewModel depends on Classifiable, not a concrete type. This lets you
-  swap implementations (real vs. mock) with a single line change.
+DispatchSemaphore
+  Vision's completion handler fires asynchronously. The semaphore blocks the
+  background thread until results are ready before classify() returns.
+  value: 0 = gate starts closed. signal() opens it. wait() blocks until open.
+
+UIViewControllerRepresentable
+  SwiftUI has no native camera view. ImagePickerView wraps UIImagePickerController
+  using this protocol. The Coordinator class bridges UIKit delegate callbacks back
+  to SwiftUI bindings.
 
 ---
 
 ## Discussion Questions
 
-1. Why do we run CoreML inference on a background thread?
-2. What would happen if we called classify() directly on the main thread?
-3. Why does ClassificationState use an enum instead of multiple Bool properties?
-4. What is the Coordinator in ImagePickerView.swift responsible for?
-5. How would you add a History feature to store past predictions using Firestore?
+1. What CoreML and how is it used along Vision in this AI app?
+2. What is image recognition and what are some of the popular image recognition models?
+3. How is the MobileNetV2 (or Inceptionv3 used in the Udemy demo) model implemented in the iSeeFood app. What are the major steps?
+3. What extra AI features would you like to implement in the iSeeFood app? How would you go about doing that?
 
 ---
 
 ## Extension Ideas
 
-- Firestore Logging — Save each classification result to Cloud Firestore with timestamp
-- Share Sheet — Use ShareLink to share the image + result
+- Firestore Logging — Save each result to Cloud Firestore with a timestamp
+- Share Sheet — Use ShareLink to share the image and top prediction
 - Custom Model — Train your own food classifier with Create ML
-- Batch Classification — Classify multiple photos from the library at once
-- Confidence Threshold — Only show results above 70% confidence
+- Confidence Threshold — Only show the result if confidence is above 70%
+- Camera Live Preview — Use AVFoundation for real-time classification
 
----
 
-ISeefood — "See food? I see food."
-Built for Flagler College iOS Development
