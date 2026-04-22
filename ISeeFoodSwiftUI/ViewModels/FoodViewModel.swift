@@ -38,18 +38,18 @@ final class FoodViewModel: ObservableObject {
 
     // MARK: - Published State
 
-    /// The current phase of the recognition workflow.
-    /// The View switches its layout based on this value.
+    // The current phase of the recognition workflow.
+    // The View switches its layout based on this value.
     @Published var state: ClassificationState = .idle
 
-    /// The image selected by the user (from camera or photo library).
+    // The image selected by the user (from camera or photo library).
     @Published var selectedImage: UIImage?
 
-    /// Controls whether the camera sheet is presented.
+    // Controls whether the camera sheet is presented.
     @Published var showCamera = false
 
-    /// The selected PhotosPickerItem from the SwiftUI PhotosPicker.
-    /// Setting this triggers loadTransferable to convert it to a UIImage.
+    // The selected PhotosPickerItem from the SwiftUI PhotosPicker.
+    // Setting this triggers loadTransferable to convert it to a UIImage.
     @Published var photoPickerItem: PhotosPickerItem? {
         didSet {
             if let item = photoPickerItem {
@@ -60,17 +60,17 @@ final class FoodViewModel: ObservableObject {
 
     // MARK: - Dependencies
 
-    /// The CoreML + Vision classifier. Created once and reused for the
-    /// lifetime of the ViewModel. Model loading happens inside init().
+    // The CoreML + Vision classifier. Created once and reused for the
+    // lifetime of the ViewModel. Model loading happens inside init().
     private let classifier = FoodClassifierService()
 
     // MARK: - Image Loading
 
-    /// Loads a UIImage from a PhotosPickerItem selected via SwiftUI's PhotosPicker.
-    ///
-    /// PhotosPickerItem uses the Transferable protocol — a modern Swift concurrency
-    /// approach to moving data between processes. We request a Data representation,
-    /// then convert it to a UIImage.
+    // Loads a UIImage from a PhotosPickerItem selected via SwiftUI's PhotosPicker.
+    //
+    // PhotosPickerItem uses the Transferable protocol — a modern Swift concurrency
+    // approach to moving data between processes. We request a Data representation,
+    // then convert it to a UIImage.
     private func loadTransferable(from item: PhotosPickerItem) {
         Task {
             do {
@@ -89,13 +89,13 @@ final class FoodViewModel: ObservableObject {
 
     // MARK: - Classification
 
-    /// Runs the CoreML model on selectedImage and updates state with results.
-    ///
-    /// Thread safety:
-    ///   CoreML does heavy CPU/GPU work. Task.detached moves that work off the
-    ///   main thread so the UI stays responsive during inference. After inference
-    ///   completes, await MainActor.run {} brings us back to the main thread to
-    ///   safely update @Published properties.
+    // Runs the CoreML model on selectedImage and updates state with results.
+    //
+    // Thread safety:
+    //   CoreML does heavy CPU/GPU work. Task.detached moves that work off the
+    //   main thread so the UI stays responsive during inference. After inference
+    //   completes, await MainActor.run {} brings us back to the main thread to
+    //   safely update @Published properties.
     func analyzeImage() {
         guard let image = selectedImage else { return }
 
@@ -122,7 +122,7 @@ final class FoodViewModel: ObservableObject {
         }
     }
 
-    /// Resets the app back to the initial idle state.
+    // Resets the app back to the initial idle state.
     func reset() {
         selectedImage = nil
         photoPickerItem = nil
@@ -131,15 +131,15 @@ final class FoodViewModel: ObservableObject {
 
     // MARK: - Computed Helpers
 
-    /// The top prediction's label, capitalized for display.
-    /// Example: "hot dog" → "Hot Dog"
+    // The top prediction's label, capitalized for display.
+    // Example: "hot dog" → "Hot Dog"
     var topLabel: String? {
         guard case .results(let classifications) = state else { return nil }
         return classifications.first?.label.capitalized
     }
 
-    /// The top prediction's confidence as a percentage string.
-    /// Example: 0.923 → "92%"
+    // The top prediction's confidence as a percentage string.
+    // Example: 0.923 → "92%"
     var topConfidence: String? {
         guard case .results(let classifications) = state else { return nil }
         return classifications.first?.confidencePercent

@@ -84,6 +84,15 @@ Add these two keys to your Info.plist (Xcode target > Info tab):
 
 Without these the app will crash when accessing camera or photos.
 
+###To this , open up your Xcode, then click on your project name (the blue icon) in the left sidebar
+1. Select your target (ISeeFoodSwiftUI)
+2. Click the Info tab at the top
+3. Under Custom iOS Target Properties, hover over any existing row and click the + button
+4. Type Privacy - Camera Usage Description and press Enter
+5. In the Value column, type: ISeefood needs the camera to analyze your food.
+6. Click + again
+6. Type Privacy - Photo Library Usage Description and press Enter
+7. In the Value column, type: ISeefood needs photo access to analyze images.
 ---
 
 ## Key Concepts in this Demo
