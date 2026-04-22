@@ -26,30 +26,30 @@
 import SwiftUI
 import UIKit
 
-/// A SwiftUI-compatible wrapper around UIImagePickerController.
-///
-/// Usage:
-/// ```
-/// ImagePickerView(image: $viewModel.selectedImage, sourceType: .camera)
-/// ```
+// A SwiftUI-compatible wrapper around UIImagePickerController.
+//
+// Usage:
+// ```
+// ImagePickerView(image: $viewModel.selectedImage, sourceType: .camera)
+// ```
 struct ImagePickerView: UIViewControllerRepresentable {
 
     // MARK: - Properties
 
-    /// Binding to the image selected by the user.
-    /// When the user picks a photo, we write the UIImage into this binding,
-    /// which automatically updates the ViewModel's `selectedImage`.
+    // Binding to the image selected by the user.
+    // When the user picks a photo, we write the UIImage into this binding,
+    // which automatically updates the ViewModel's `selectedImage`.
     @Binding var image: UIImage?
 
-    /// .camera for the live camera, .photoLibrary for the photo roll.
+    // .camera for the live camera, .photoLibrary for the photo roll.
     var sourceType: UIImagePickerController.SourceType = .camera
 
-    /// Dismisses this sheet when the user cancels or picks a photo.
+    // Dismisses this sheet when the user cancels or picks a photo.
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - UIViewControllerRepresentable
 
-    /// Creates the UIKit view controller SwiftUI will manage.
+    // Creates the UIKit view controller SwiftUI will manage.
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = sourceType
@@ -59,32 +59,32 @@ struct ImagePickerView: UIViewControllerRepresentable {
         return picker
     }
 
-    /// Called when SwiftUI needs to update the UIKit controller.
-    /// UIImagePickerController doesn't need dynamic updates, so this is empty.
+    // Called when SwiftUI needs to update the UIKit controller.
+    // UIImagePickerController doesn't need dynamic updates, so this is empty.
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
 
-    /// Creates the Coordinator that bridges UIKit delegate callbacks to SwiftUI.
+    // Creates the Coordinator that bridges UIKit delegate callbacks to SwiftUI.
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
 
     // MARK: - Coordinator
 
-    /// Bridges UIImagePickerControllerDelegate to our SwiftUI binding.
-    ///
-    /// The Coordinator is a class (not struct) because UIKit delegates are
-    /// always reference types — they're stored weakly by UIKit.
+    // Bridges UIImagePickerControllerDelegate to our SwiftUI binding.
+    //
+    // The Coordinator is a class (not struct) because UIKit delegates are
+    // always reference types — they're stored weakly by UIKit.
     final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
 
-        /// Reference back to the parent SwiftUI struct.
-        /// `var` (not `let`) because the binding can change.
+        // Reference back to the parent SwiftUI struct.
+        // `var` (not `let`) because the binding can change.
         var parent: ImagePickerView
 
         init(_ parent: ImagePickerView) {
             self.parent = parent
         }
 
-        /// Called when the user picks or takes a photo.
+        // Called when the user picks or takes a photo.
         func imagePickerController(
             _ picker: UIImagePickerController,
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
@@ -97,7 +97,7 @@ struct ImagePickerView: UIViewControllerRepresentable {
             parent.dismiss()
         }
 
-        /// Called when the user taps Cancel.
+        // Called when the user taps Cancel.
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.dismiss()
         }
