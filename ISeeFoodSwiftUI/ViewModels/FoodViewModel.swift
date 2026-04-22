@@ -22,7 +22,7 @@
 //
 //   ObservableObject
 //     A protocol that lets SwiftUI Views subscribe to changes in this class.
-//     Any View that uses `@StateObject` or `@ObservedObject` with this class
+//     Any View that uses @StateObject or @ObservedObject with this class
 //     will automatically re-render when a @Published property changes.
 //
 //   @Published
@@ -30,16 +30,13 @@
 //     SwiftUI sees the change and redraws every View that depends on it.
 
 import SwiftUI
-import Combine
 import PhotosUI
+import Combine
 
 @MainActor
 final class FoodViewModel: ObservableObject {
 
     // MARK: - Published State
-    //
-    // These are the properties the View observes. When any of them change,
-    // every View subscribed to this ViewModel will re-evaluate its body.
 
     /// The current phase of the recognition workflow.
     /// The View switches its layout based on this value.
@@ -48,14 +45,11 @@ final class FoodViewModel: ObservableObject {
     /// The image selected by the user (from camera or photo library).
     @Published var selectedImage: UIImage?
 
-    /// Controls whether the image source picker sheet is presented.
-    @Published var showImagePicker = false
-
-    /// Controls whether the camera is presented.
+    /// Controls whether the camera sheet is presented.
     @Published var showCamera = false
 
     /// The selected PhotosPickerItem from the SwiftUI PhotosPicker.
-    /// Setting this triggers the `onChange` handler in the View to load the image.
+    /// Setting this triggers loadTransferable to convert it to a UIImage.
     @Published var photoPickerItem: PhotosPickerItem? {
         didSet {
             if let item = photoPickerItem {
@@ -66,37 +60,26 @@ final class FoodViewModel: ObservableObject {
 
     // MARK: - Dependencies
 
-    /// The object that performs actual image classification.
-    /// Using the `Classifiable` protocol here (not `FoodClassifierService` directly)
-    /// means we can swap in MockFoodClassifier without changing any other code.
-    ///
-    /// For classroom use: swap to MockFoodClassifier() if you don't have the .mlmodel
-    private let classifier: Classifiable
-
-    // MARK: - Initialization
-
-    init(classifier: Classifiable = MockFoodClassifier()) {
-        self.classifier = classifier
-        // 💡 STUDENTS: Once you've added MobileNetV2.mlmodel to your project,
-        // change the default above to: FoodClassifierService()
-    }
+    /// The CoreML + Vision classifier. Created once and reused for the
+    /// lifetime of the ViewModel. Model loading happens inside init().
+    private let classifier = FoodClassifierService()
 
     // MARK: - Image Loading
 
     /// Loads a UIImage from a PhotosPickerItem selected via SwiftUI's PhotosPicker.
     ///
     /// PhotosPickerItem uses the Transferable protocol — a modern Swift concurrency
-    /// approach to moving data between processes. We request a `Data` representation,
-    /// then convert it to UIImage.
+    /// approach to moving data between processes. We request a Data representation,
+    /// then convert it to a UIImage.
     private func loadTransferable(from item: PhotosPickerItem) {
         Task {
             do {
-                // `loadTransferable` is async — it asks the Photos framework to
-                // give us the image data. The `await` pauses this Task until ready.
+                // loadTransferable is async — it asks the Photos framework to
+                // provide the image data. The await pauses this Task until ready.
                 if let data = try await item.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
                     selectedImage = image
-                    state = .idle  // Reset so user sees the image with Analyze button
+                    state = .idle
                 }
             } catch {
                 state = .error("Could not load the selected photo: \(error.localizedDescription)")
@@ -106,32 +89,24 @@ final class FoodViewModel: ObservableObject {
 
     // MARK: - Classification
 
-    /// Runs the CoreML model on `selectedImage` and updates state with results.
-    ///
-    /// This is an `async` function called from an `async` Task.
+    /// Runs the CoreML model on selectedImage and updates state with results.
     ///
     /// Thread safety:
-    ///   The classifier does heavy computation on a background thread
-    ///   (`Task.detached` or background executor). We update `@Published`
-    ///   properties here, which is safe because `FoodViewModel` is `@MainActor`.
+    ///   CoreML does heavy CPU/GPU work. Task.detached moves that work off the
+    ///   main thread so the UI stays responsive during inference. After inference
+    ///   completes, await MainActor.run {} brings us back to the main thread to
+    ///   safely update @Published properties.
     func analyzeImage() {
         guard let image = selectedImage else { return }
 
         state = .analyzing
 
-        // Task { } creates a new unit of async work.
-        // Because FoodViewModel is @MainActor, this Task runs on the main thread.
-        // We use Task.detached to move the expensive classify() call off main.
         Task.detached { [weak self] in
             guard let self else { return }
 
             do {
-                // `classify` does CPU/GPU work. Running it on a detached Task
-                // keeps the UI responsive while the model is processing.
                 let results = try self.classifier.classify(image: image)
 
-                // Jump back to the main actor to update published state.
-                // @MainActor properties must be mutated on the main thread.
                 await MainActor.run {
                     if results.isEmpty {
                         self.state = .error("The model returned no predictions. Try a clearer image.")
@@ -154,24 +129,17 @@ final class FoodViewModel: ObservableObject {
         state = .idle
     }
 
-    // MARK: - Computed Helpers (used by the View)
+    // MARK: - Computed Helpers
 
-    /// Returns true if we have a result and the top prediction is food.
-    var topResultIsFood: Bool {
-        guard case .results(let classifications) = state,
-              let top = classifications.first else {
-            return false
-        }
-        return top.isFoodConfident
-    }
-
-    /// The top prediction's label, formatted for display ("pizza" → "Pizza").
+    /// The top prediction's label, capitalized for display.
+    /// Example: "hot dog" → "Hot Dog"
     var topLabel: String? {
         guard case .results(let classifications) = state else { return nil }
         return classifications.first?.label.capitalized
     }
 
-    /// The top prediction's confidence percentage string.
+    /// The top prediction's confidence as a percentage string.
+    /// Example: 0.923 → "92%"
     var topConfidence: String? {
         guard case .results(let classifications) = state else { return nil }
         return classifications.first?.confidencePercent

@@ -33,8 +33,7 @@ struct ResultsView: View {
         VStack(alignment: .leading, spacing: 20) {
 
             // MARK: Hero Result Card — The "ISeefood" reveal
-            HeroResultCard(isFood: viewModel.topResultIsFood,
-                           label: viewModel.topLabel ?? "Unknown",
+            HeroResultCard(label: viewModel.topLabel ?? "Unknown",
                            confidence: viewModel.topConfidence ?? "")
 
             // MARK: Top Predictions List
@@ -59,34 +58,23 @@ struct ResultsView: View {
 
 // MARK: - HeroResultCard
 
-/// The big "IS IT FOOD?" reveal card at the top of results.
+/// The big reveal card showing the model's top prediction.
 private struct HeroResultCard: View {
 
-    let isFood: Bool
     let label: String
     let confidence: String
 
-    // Drives the entrance animation
     @State private var appeared = false
 
     var body: some View {
         VStack(spacing: 8) {
-            // Emoji reacts to the prediction
-            Text(isFood ? "🍕" : "🙅")
+            Text("🍕")
                 .font(.system(size: 64))
                 .scaleEffect(appeared ? 1.0 : 0.5)
                 .animation(.spring(response: 0.4, dampingFraction: 0.6), value: appeared)
 
-            // The ISeefood catchphrase
-            Group {
-                if isFood {
-                    Text("I see **\(label)**!")
-                        .font(.title)
-                } else {
-                    Text("That's not food!")
-                        .font(.title)
-                }
-            }
+            Text("I see **\(label)**!")
+                .font(.title)
 
             Text("\(confidence) confidence")
                 .font(.subheadline)
@@ -94,14 +82,8 @@ private struct HeroResultCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .background(
-            // Green for food, gray for not-food
-            isFood ? Color.green.opacity(0.15) : Color.secondary.opacity(0.1),
-            in: RoundedRectangle(cornerRadius: 20)
-        )
-        .onAppear {
-            appeared = true
-        }
+        .background(Color.green.opacity(0.15), in: RoundedRectangle(cornerRadius: 20))
+        .onAppear { appeared = true }
     }
 }
 

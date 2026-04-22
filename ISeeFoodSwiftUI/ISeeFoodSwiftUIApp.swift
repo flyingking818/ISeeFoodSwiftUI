@@ -2,8 +2,8 @@
 //  ISeeFoodSwiftUIApp.swift
 //  ISeeFoodSwiftUI
 //
-//  Created by Jeremy Wang on 4/22/26.
-//
+//  Last updated by Jeremy Wang on 4/13/26.
+
 
 import SwiftUI
 
@@ -11,7 +11,7 @@ import SwiftUI
 struct ISeeFoodSwiftUIApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainView()
         }
     }
 }
